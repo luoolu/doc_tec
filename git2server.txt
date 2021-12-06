@@ -1,0 +1,38 @@
+
+## Push an existing folder
+
+cd existing_folder
+git init
+git remote add origin http://10.122.4.56/bp_flow/bpjdsystem.git
+git add .
+git commit -m "Initial commit"
+export http_proxy=""
+export https_proxy=""
+git push -u origin master
+
+
+
+
+## Create a new repository
+
+git clone http://10.122.4.56/bp_flow/bpjdsystem.git
+cd bpjdsystem
+touch README.md
+git add README.md
+git commit -m "add README"
+git push -u origin master
+
+
+## Push an existing Git repository
+
+cd existing_repo
+git remote rename origin old-origin
+git remote add origin http://10.122.4.56/bp_flow/bpjdsystem.git
+git push -u origin --all
+git push -u origin --tags
+
+
+
+
+
+

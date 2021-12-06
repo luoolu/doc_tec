@@ -1,0 +1,14 @@
+# ubuntu20.04
+
+## step1
+
+sudo apt-get update -y
+
+## step2
+
+sudo apt-get install -y python3-virtualenv-clone
+
+
+# vitualenv clone usage
+
+virtualenv-clone project1/venv project2/venv

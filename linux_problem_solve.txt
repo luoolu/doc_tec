@@ -1,0 +1,7 @@
+1, "gksu-gtk-warning-cannot-open-display-0"?
+	  sudo vim .bashrc
+	Add the following line at the end.
+	  export XAUTHORITY=$HOME/.Xauthority
+	  source .bashrc
+
+2,

@@ -1,0 +1,41 @@
+sudo vim /etc/apt/apt.conf
+
+sudo gedit /etc/apt/apt.conf
+
+
+Acquire::http::proxy "http://10.22.96.29:8080/";
+Acquire::https::proxy "http://10.22.96.29:8080/";
+Acquire::ftp::proxy "http://10.22.96.29:8080/";
+Acquire::socks::proxy "http://10.22.96.29:8080/";
+proxy1.bj.petrochina
+
+
+weget
+export http_proxy=http://10.22.96.29:8080
+export https_proxy=http://10.22.96.29:8080
+
+http_proxy=http://10.22.96.29:8080/
+https_proxy=http://10.22.96.29:8080/
+ftp_proxy=http://10.22.96.29:8080/
+socks=http://10.22.96.29:8080/
+
+export ALL_PROXY=socks5://127.0.0.1:1080
+
+
+proxy_servers:
+    http_proxy=http://10.22.96.29:8080/
+    https_proxy=http://10.22.96.29:8080/
+
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/msys2/
+  - defaults
+show_channel_urls: True
+allow_other_channels: True
+ 
+proxy_servers:
+    http_proxy=http://10.22.96.29:8080/
+    https_proxy=http://10.22.96.29:8080/
+ 
+ssl_verify: False

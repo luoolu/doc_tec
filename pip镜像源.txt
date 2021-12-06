@@ -1,0 +1,28 @@
+1.douban:
+
+https://pypi.douban.com/simple/ 
+-i https://pypi.tuna.tsinghua.edu.cn/simple
+-i https://pypi.doubanio.com/simple/
+-i https://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+
+https://hub.fastgit.org/
+https://github.com.cnpmjs.org/
+git clone https://github.com/xxx.git
+改成：
+git clone https://github.com.cnpmjs.org/xxx.git
+
+2.tuna:
+
+https://pypi.tuna.tsinghua.edu.cn/simple
+
+3. ustc
+
+https://pypi.mirrors.ustc.edu.cn/simple/
+
+4. aliyun
+
+https://mirrors.aliyun.com/pypi/
+
+# move large file
+find /home/xkjs/NDisk/zys/20210206ytb_jpg/ -name "*.jpg" | xargs -i mv {} /home/xkjs/NDisk/zys/20210206ytb_jpg/home_theater/
+

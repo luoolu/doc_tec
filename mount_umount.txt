@@ -1,0 +1,12 @@
+
+sudo fdisk -l
+
+sudo mount /dev/sdb /home/xkjs/NDisk
+
+## mount disk permanently
+sudo vim /etc/fstab
+/dev/sdb /home/xkjs/NDisk ext4 defaults 0 0
+
+## check mount status
+
+mount -a

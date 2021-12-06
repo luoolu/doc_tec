@@ -1,0 +1,47 @@
+清华: https://pypi.tuna.tsinghua.edu.cn/simple
+
+豆瓣: http://pypi.douban.com/simple/
+
+阿里: http://mirrors.aliyun.com/pypi/simple/
+
+
+Linux/MAC下
+sudo gedit ~/.condaarc
+直接修改~/.condaarc文件在"channels"中添加即可
+
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+  - defaults
+show_channel_urls: true
+--------------------- 
+最终的.condarc文件如下所示
+--------------------- 
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/  
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/pro
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/mro
+show_channel_urls: true
+
+
+（1）添加清华源
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+#设置搜索时显示通道地址
+conda config --set show_channel_urls yes
+
+（2）添加中科大源
+conda config --add channels https://mirrors.ustc.edu.cn/anaconda/pkgs/free/
+conda config --set show_channel_urls yes
+
+（3）查看
+#看看当前的 cofig 是什么样的
+conda config --show
+
+#查看添加的镜像：
+conda config --get channels
+
+（4）删除源
+conda config --remove-key channels
+--------------------- 
+
