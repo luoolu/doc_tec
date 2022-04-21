@@ -1,0 +1,5 @@
+
+## Step 1: Create a Conda environment.
+conda create --name firstEnv
+## Step 2: set this conda environment on your jupyter notebook.
+python -m ipykernel install --user --name=firstEnv
