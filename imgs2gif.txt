@@ -1,0 +1,13 @@
+
+## ubuntu commandline
+### step_1
+sudo apt-get install imagemagick
+
+### step_2
+#### -delay 20ms
+convert -delay 20 -loop 0 *.jpg myimage.gif
+
+## example
+
+
+convert -delay 200 -loop 0 1.jpg 1_SwinIR.png 1.gif
