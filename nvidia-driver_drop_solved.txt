@@ -1,3 +1,6 @@
+## check gcc version
+sudo update-alternatives --config gcc
+
 sudo apt-get purge *nvidia* -y
 sudo apt-get autoremove *nvidia* -y
 sudo apt-get update && sudo apt-get autoremove && sudo apt-get autoclean -y
