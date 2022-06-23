@@ -1,4 +1,5 @@
 ## check gcc version
+## sudo sh cuda_11.6.2_510.47.03_linux.run -- ## gcc-10 ##
 sudo update-alternatives --config gcc
 
 sudo apt-get purge *nvidia* -y
