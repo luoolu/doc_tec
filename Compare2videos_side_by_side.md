@@ -1,3 +1,13 @@
+#   How to Stack Videos Horizontally using FFmpeg?
+
+$ ffmpeg -i input0.mp4 -i input1.mp4 -filter_complex hstack=inputs=2 horizontal-stacked-output.mp4
+
+#   Stacking Videos Vertically using FFmpeg
+
+$ ffmpeg -i input0.mp4 -i input1.mp4 -filter_complex vstack=inputs=2 vertical-stack-output.mp4
+
+
+
 ##  Compare two videos side by side using ffmpe
 
 ### Customise left.mp4, right.mp4 and ouput_leftRight.mp4
