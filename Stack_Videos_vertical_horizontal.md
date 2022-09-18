@@ -29,6 +29,20 @@ $ ffmpeg \
 -map "[v]" \
 finalOutput.mp4
 
+#  Use the hstack filte to join images into one
+
+-- 2 images:
+
+$ ffmpeg -i a.jpg -i b.jpg -filter_complex hstack output.jpg
+
+-- 3 images:
+
+$ ffmpeg -i a.jpg -i b.jpg -i c.jpg -filter_complex "[0][1][2]hstack=inputs=3" output.jpg
+
+----  If you want to vertically stack use vstack instead
+
+
+
 ##  Compare two videos side by side using ffmpe
 
 ### Customise left.mp4, right.mp4 and ouput_leftRight.mp4
