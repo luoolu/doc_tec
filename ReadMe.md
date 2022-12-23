@@ -2,7 +2,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/luoolu/doc_tec">
-    <img src="facialAna.png" alt="Logo" width=300" height=300">
+    <img src="facialAna.png" alt="Logo" width=600" height=300">
   </a>
 
 <h3 align="center">loo Dev Doc</h3>
