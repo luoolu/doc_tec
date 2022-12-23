@@ -1,5 +1,14 @@
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/luoolu/doc_tec">
+    <img src="facialAna.png" alt="Logo" width=300" height=300">
+  </a>
+
+<h3 align="center">loo Dev Doc</h3>
+
 ## Description
-This is a tool project for domain developer with ubuntu20.04
+This is a tool project for domain developer with ubuntu
 
 ## Features
 
@@ -17,4 +26,4 @@ This is a tool project for domain developer with ubuntu20.04
 
 ## Usage
 
-check the *.txt files
+check the *.md / *.txt files
