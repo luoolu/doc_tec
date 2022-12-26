@@ -10,7 +10,7 @@
 
 <!-- TABLE OF CONTENTS -->
 
-## Description \
+## Description 
 This is a tool project for domain developer with ubuntu
 
 ## Features
