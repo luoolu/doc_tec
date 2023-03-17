@@ -29,3 +29,7 @@ $  Example: docker build -t image_name Dockerfile_directory \
 
 -- docker exec: Runs a command inside a running container. \
 $  Example: docker exec -it container_name command \
+
+-- Enter the container using the docker exec command \
+$  docker exec -it container_id_or_name /bin/bash
+
