@@ -19,6 +19,9 @@ mogrify -format jpg filename.jpg
 ffmpeg -r 1/7 -i c%dm04_1.png -c:v libx264 -vf fps=1 -pix_fmt yuv420p -vf pad="width=ceil(iw/2)*2:height=ceil(ih/2)*2" out.mp4
 
 ffmpeg -framerate 25 -pattern_type glob -i "*.png" out.mp4
+### each image stays for N seconds, you can add the -r option followed by a value of 1/N.
+ffmpeg -framerate 1/N -pattern_type glob -i "*.png" -r 25 out.mp4
+
 
 ##  Video split and restore
 # ffmpeg -framerate 30.00 -pattern_type glob -i '*.jpg' -c:v libx264 -r 30 -pix_fmt yuv420p jdd_video.mp4
