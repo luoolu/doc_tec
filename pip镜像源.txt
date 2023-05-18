@@ -4,6 +4,7 @@ https://pypi.douban.com/simple/
 -i https://pypi.tuna.tsinghua.edu.cn/simple
 -i https://pypi.doubanio.com/simple/
 -i https://pypi.douban.com/simple/ --trusted-host pypi.douban.com
+-i https://mirrors.bfsu.edu.cn/pypi/web/simple
 
 https://hub.fastgit.org/
 https://github.com.cnpmjs.org/
