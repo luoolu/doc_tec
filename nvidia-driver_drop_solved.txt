@@ -29,3 +29,32 @@ sudo apt install nvidia-driver-470
 sudo reboot
 
 nvidia-smi
+
+****************************     NVLink A800     ****************
+
+$ sudo apt install nvidia-driver-550
+
+$ sudo reboot
+
+$ nvidia-smi
+
+$ sudo apt install nvidia-nvidia-fabricmanager-550
+
+$ sudo systemctl enable nvidia-fabricmanager
+
+$ sudo systemctl restart nvidia-fabricmanager
+
+$ sudo systemctl status nvidia-fabricmanager
+
+
+
+
+
+
+
+
+
+
+
+
+
