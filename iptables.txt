@@ -1,0 +1,5 @@
+sudo iptables -F  # clear iptables rules
+sudo iptables -I INPUT -p tcp --dport 80 -s 10.122.161.210 -j ACCEPT # add ip
+sudo iptables -vnL --line-numbers # select ip rules
+sudo iptables -D INPUT 1  # delete rule
+sudo iptables -vnL  # list
