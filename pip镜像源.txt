@@ -1,4 +1,6 @@
 1.douban:
+src:
+-i https://pypi.org/simple
 
 https://pypi.douban.com/simple/ 
 -i https://pypi.tuna.tsinghua.edu.cn/simple
