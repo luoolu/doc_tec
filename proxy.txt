@@ -8,7 +8,8 @@ Acquire::https::proxy "http://10.22.96.29:8080/";
 Acquire::ftp::proxy "http://10.22.96.29:8080/";
 Acquire::socks::proxy "http://10.22.96.29:8080/";
 proxy1.bj.petrochina
-
+conda config --set proxy_servers.http http://10.22.96.29:8080
+conda config --set proxy_servers.https http://10.22.96.29:8080
 
 weget
 export http_proxy=http://10.22.96.29:8080
