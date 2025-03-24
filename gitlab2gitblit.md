@@ -1,3 +1,164 @@
+## 20250324
+下面提供一个完整的迁移方案，步骤包括备份、获取仓库列表、批量克隆、安装配置 Gitblit、将仓库导入 Gitblit 以及后续验证和调整。注意：Gitblit 主要是用于 Git 仓库的管理，GitLab 里除代码外的 Issue、CI/CD、Wiki、附件等功能 Gitblit 并不支持，如果非代码内容是以附件或其它形式存在，建议另外备份和处理。以下方案假设所有需要迁移的内容均在 Git 仓库内（比如采用 Git LFS 存储的非代码数据也会跟随仓库迁移）。
+
+---
+
+## 1. 备份 GitLab 数据
+
+在迁移前务必备份 GitLab 数据，以防操作失误导致数据丢失。  
+例如（假设 GitLab 安装在 Ubuntu 系统上）：
+
+```bash
+# 停止 GitLab 服务（如果需要）
+sudo gitlab-ctl stop
+
+# 备份 GitLab 数据目录和配置目录（请根据实际路径调整）
+sudo cp -a /var/opt/gitlab /path/to/backup/gitlab_backup
+sudo cp -a /etc/gitlab /path/to/backup/gitlab_config_backup
+
+# 如果服务已停止并确认备份无误后，再启动服务
+sudo gitlab-ctl start
+```
+
+---
+
+## 2. 获取所有 GitLab 仓库的列表
+
+可以通过两种方式获得所有仓库的地址：
+
+### 2.1 通过文件系统查找
+如果你的 GitLab 仓库存储在 `/var/opt/gitlab/git-data/repositories` 下，可以生成仓库列表：
+```bash
+find /var/opt/gitlab/git-data/repositories -name "*.git" > ~/repo_list.txt
+```
+列表中的每一行为仓库的存储路径，可能需要根据实际情况转为仓库访问 URL（例如：http://gitlab-server/namespace/project.git）。
+
+### 2.2 通过 GitLab API 获取
+若你有 API token，可以用下面的命令获取项目的 SSH 地址（安装 jq 工具）：
+```bash
+curl --header "PRIVATE-TOKEN: <your_access_token>" "http://gitlab.example.com/api/v4/projects?per_page=100" | jq '.[].ssh_url_to_repo' > ~/repo_list.txt
+```
+请将 `<your_access_token>` 和 URL 替换为实际值。
+
+---
+
+## 3. 批量克隆 GitLab 仓库
+
+利用上一步生成的仓库列表，编写脚本批量克隆（使用 `--mirror` 参数可以完整克隆包括所有分支、标签和 Git 对象的完整仓库）。
+
+例如，创建脚本 `clone_repos.sh`：
+```bash
+#!/bin/bash
+mkdir -p ~/gitlab_mirrors
+cd ~/gitlab_mirrors
+while read repo; do
+    echo "Cloning $repo ..."
+    git clone --mirror "$repo"
+done < ~/repo_list.txt
+```
+保存后，赋予执行权限并运行：
+```bash
+chmod +x clone_repos.sh
+./clone_repos.sh
+```
+这样会在 `~/gitlab_mirrors` 目录下生成所有仓库的镜像目录。
+
+---
+
+## 4. 安装和配置 Gitblit
+
+### 4.1 安装 Java 环境
+
+Gitblit 是基于 Java 的，因此需要先安装 Java（例如 OpenJDK 11）：
+```bash
+sudo apt update
+sudo apt install openjdk-11-jre-headless
+```
+
+### 4.2 下载并启动 Gitblit
+
+从 Gitblit 官网或 GitHub 发布页面下载最新版本（以下以 1.9.4 版本为例）：
+```bash
+wget https://github.com/gitblit/gitblit/releases/download/v1.9.4/gitblit-1.9.4.war -O gitblit.war
+```
+启动 Gitblit（默认端口 8080）：
+```bash
+java -jar gitblit.war --port=8080
+```
+Gitblit 会生成配置文件和数据目录（默认在用户目录下的 `.gitblit` 目录），你可以根据需要修改配置，例如仓库存储路径、认证方式等。
+
+---
+
+## 5. 将仓库导入 Gitblit
+
+Gitblit 可以自动扫描指定目录中的仓库，所以我们可以将之前克隆好的仓库移动或复制到 Gitblit 的仓库目录中。
+
+假设 Gitblit 配置的仓库存储目录为 `/home/gitblit/git_repositories`（你可以在 Gitblit 的配置文件中调整），则执行：
+```bash
+sudo cp -r ~/gitlab_mirrors/*.git /home/gitblit/git_repositories/
+sudo chown -R gitblit:gitblit /home/gitblit/git_repositories/
+```
+然后，登录 Gitblit Web UI（通常 http://<服务器IP>:8080/），进入 “Repositories” 页面，点击 “Scan” 按钮，Gitblit 会扫描该目录下的所有 Git 仓库并自动导入。
+
+---
+
+## 6. 验证和测试
+
+1. 在 Gitblit 的 Web 界面中检查仓库列表，确保所有项目均已正确显示。
+2. 选取一个仓库测试克隆，确认代码、分支和标签都完整：
+   ```bash
+   git clone http://<gitblit_server>:8080/git/<repo_name>.git
+   ```
+3. 如果仓库中使用了 Git LFS 进行大文件管理，确认 Git LFS 对象也已正常迁移。
+
+---
+
+## 7. 针对非代码（大数据）内容的注意事项
+
+- 如果非代码内容是存放在 Git 仓库内（例如 Git LFS 管理的二进制文件或其他大文件），上述步骤会一起迁移。
+- 如果非代码数据以附件、Wiki 等形式存在于 GitLab，而 Gitblit 无法管理，请额外备份这些数据，并考虑采用其他存储或管理方式。
+
+---
+
+## 8. 更新访问入口（DNS/反向代理）
+
+迁移完毕后，将用户访问地址从 GitLab 切换为 Gitblit 服务器地址。可使用 Nginx 反向代理，例如：
+```nginx
+server {
+    listen 80;
+    server_name git.example.com;
+    
+    location / {
+        proxy_pass http://localhost:8080/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+保存配置后，重启 Nginx：
+```bash
+sudo systemctl restart nginx
+```
+
+---
+
+## 9. 迁移完成后的工作
+
+- **数据验证**：通知团队成员对关键仓库进行验证，确保所有数据、历史记录和大文件均正确迁移。
+- **通知切换**：更新团队内部文档及通知，让大家切换到 Gitblit 地址进行代码管理。
+- **后续维护**：定期备份 Gitblit 数据，并根据实际需求调整 Gitblit 配置。
+
+---
+
+以上步骤和命令为一个基本的迁移方案。具体环境可能存在差异，请根据实际情况调整路径、端口和配置参数。迁移大数据量（超过 2T）的过程中建议选用网络和磁盘 I/O 负载较低的时段进行操作，以确保数据完整性和稳定性。
+
+
+
+
+
+
+
+
 下面是从Ubuntu服务器上的GitLab迁移到Gitblit服务器的详细步骤和完整命令。  
 整个过程分为四个阶段：
 
@@ -177,3 +338,13 @@ git clone http://gitblit-server-ip:8080/r/your-repo.git
 ---
 
 以上便是**完整操作步骤**和**详细命令**，你可以逐步执行，完成从GitLab到Gitblit的迁移。
+
+
+
+
+
+
+
+
+
+
