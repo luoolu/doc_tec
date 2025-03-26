@@ -69,3 +69,36 @@ cat /opt/gitlab/embedded/service/gitlab-rails/VERSION
 - 如果在升级过程中遇到依赖问题或版本不兼容的情况，可能需要手动调整软件包或联系官方支持。
 
 通过遵循上述步骤，可以逐步将 GitLab 从 13.12.15 版本安全升级到最新的 17.10 版本，同时确保服务器环境的稳定性和数据的完整性。
+
+
+
+
+## gitlab升级，关键步骤和命令
+15个版本
+13.12.15升级到14.10.5 → 15.0.5 → 15.1.6 → 15.4.6 → 15.11.13 → 16.0.8 → 
+16.1.5(GLIBC,Ubuntu 20.04的2.31; 升级到Ubuntu 22.04 LTS（Jammy Jellyfish）sudo apt update && sudo apt upgrade -y
+sudo do-release-upgrade)
+→ 16.2.8 → 16.3.6 → 16.7.z →16.11.10 → 17.3.7→ 17.5.5→ 17.8.5→ 17.10
+## 关键步骤和命令
+sudo dpkg -i gitlab-ce_14.0.12-ce.0_amd64.deb
+sudo gitlab-ctl reconfigure
+sudo gitlab-ctl restart
+
+cat /opt/gitlab/embedded/service/gitlab-rails/VERSION
+
+sudo apt update && sudo apt upgrade -y
+
+## 问题
+正在解压 gitlab-ce (16.2.8-ce.0) 并覆盖 (16.1.5-ce.0) ...
+dpkg: 处理软件包 gitlab-ce (--install)时出错：
+ 已安装 gitlab-ce 软件包 post-installation 脚本 子进程返回错误状态 1
+在处理时有错误发生：
+ gitlab-ce
+## 解决方案
+GLIBC,Ubuntu 20.04的2.31; 升级到Ubuntu 22.04 LTS（Jammy Jellyfish
+
+
+
+
+
+
