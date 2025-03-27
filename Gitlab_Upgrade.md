@@ -98,6 +98,133 @@ dpkg: 处理软件包 gitlab-ce (--install)时出错：
 GLIBC,Ubuntu 20.04的2.31; 升级到Ubuntu 22.04 LTS（Jammy Jellyfish
 
 
+gitlab_rails['rack_attack_git_basic_auth'] = {
+  'enabled' => true,
+ 'ip_whitelist' => ['10.122.161.210','10.122.161.197','10.122.161.208','10.122.161.19','10.122.161.142','10.122.161.156'],
+  'maxretry' => 10,
+  'findtime' => 60,
+  'bantime' => 3600
+}
+gitlab_rails['monitoring_whitelist'] = ['127.0.0.0/8', '192.168.0.1', '10.122.161.210','10.122.161.197','10.122.161.208','10.122.161.19','10.122.161.142','10.122.161.156']
+
+sudo apt update
+sudo apt install iptables-persistent
+
+sudo iptables -F
+sudo iptables -X
+
+
+sudo iptables -A INPUT -s 10.122.161.210 -j ACCEPT
+sudo iptables -A INPUT -s 10.122.161.197 -j ACCEPT
+sudo iptables -A INPUT -s 10.122.161.208 -j ACCEPT
+sudo iptables -A INPUT -s 10.122.161.19 -j ACCEPT
+sudo iptables -A INPUT -s 10.122.161.142 -j ACCEPT
+sudo iptables -A INPUT -s 10.122.161.156 -j ACCEPT
+sudo netfilter-persistent save
+
+sudo iptables -F
+
+sudo iptables -L -n --line-numbers
+sudo iptables -A INPUT -i lo -j ACCEPT
+sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+
+sudo ufw allow from 10.122.161.210 to any port 80
+sudo ufw allow from 10.122.161.210 to any port 443
+sudo ufw allow from 10.122.161.197 to any port 80
+sudo ufw allow from 10.122.161.197 to any port 443
+sudo ufw allow from 10.122.161.208 to any port 80
+sudo ufw allow from 10.122.161.208 to any port 443
+sudo ufw allow from 10.122.161.19 to any port 80
+sudo ufw allow from 10.122.161.19 to any port 443
+sudo ufw allow from 10.122.161.142 to any port 80
+sudo ufw allow from 10.122.161.142 to any port 443
+sudo ufw allow from 10.122.161.156 to any port 80
+sudo ufw allow from 10.122.161.156 to any port 443
+
+sudo iptables -A INPUT -p tcp --dport 80 -j DROP
+sudo iptables -A INPUT -p tcp --dport 443 -j DROP
+
+sudo netfilter-persistent save
+sudo netfilter-persistent reload
+
+
+
+# 保存当前规则
+sudo netfilter-persistent save
+
+# 加载已保存的规则
+sudo netfilter-persistent reload
+# 重启服务
+sudo systemctl restart netfilter-persistent
+
+# 启用开机自启
+sudo systemctl enable netfilter-persistent
+
+sudo ufw allow from 192.168.1.100 to any  # 允许指定IP访问所有端口
+sudo ufw enable
+
+sudo ufw allow from 10.122.161.210 to any
+sudo ufw allow from 10.122.161.197 to any
+sudo ufw allow from 10.122.161.208 to any
+sudo ufw allow from 10.122.161.19 to any
+sudo ufw allow from 10.122.161.142 to any
+sudo ufw allow from 10.122.161.156 to any
+sudo ufw enable
+
+
+
+根据你的操作，问题出在手动添加的`DROP`规则覆盖了`ufw`的允许规则，并且可能未正确配置SSH规则。以下是解决步骤：
+
+### 步骤 1：恢复SSH访问
+首先，确保SSH端口22允许所有连接：
+
+```bash
+sudo iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+```
+
+### 步骤 2：删除手动添加的DROP规则
+移除可能导致网页无法访问的`DROP`规则：
+
+```bash
+sudo iptables -D INPUT -p tcp --dport 80 -j DROP
+sudo iptables -D INPUT -p tcp --dport 443 -j DROP
+```
+
+### 步骤 3：检查并启用UFW规则
+确保`ufw`规则正确并启用：
+
+```bash
+sudo ufw enable
+sudo ufw reload
+```
+
+### 步骤 4：设置默认策略（可选）
+如果INPUT链默认不是DROP且需要严格限制：
+
+```bash
+sudo iptables -P INPUT DROP
+```
+
+### 步骤 5：确保规则顺序正确
+确保`ufw`的允许规则在默认拒绝之前。使用UFW管理80/443端口，无需手动添加`DROP`。
+
+### 步骤 6：保存并应用配置
+```bash
+sudo netfilter-persistent save
+sudo netfilter-persistent reload
+```
+
+### 验证规则
+检查规则是否正确：
+
+```bash
+sudo iptables -L INPUT -n --line-numbers
+sudo ufw status verbose
+```
+
+### 总结
+通过以上步骤，SSH和网页访问应恢复正常。确保仅通过`ufw`管理端口访问，避免混合使用`iptables`命令，防止规则冲突。
 
 
 
