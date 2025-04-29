@@ -9,3 +9,7 @@ bash: syntax error near unexpected token `(' \
 chmod: changing permissions of '/home/luolu/.credentials': Operation not permitted \
 (base) luolu@falconcore:/home$ sudo chmod 600 ~/.credentials  \
 (base) luolu@falconcore:/home$ sudo mount -a \
+"""//10.122.5.33/FalconCoreData /mnt/synology_smb cifs credentials=/home/luolu/.smbcredentials,uid=1000,gid=1000,iocharset=utf8 0 0
+""" \  """username=sadmin \
+password=Loolo.HD6500 \
+"""
