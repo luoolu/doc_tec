@@ -13,3 +13,8 @@ chmod: changing permissions of '/home/luolu/.credentials': Operation not permitt
 """ \  """username=sadmin \
 password=Loolo.HD6500 \
 """
+![clipbord_1748418793705](https://github.com/user-attachments/assets/74e998de-584d-4d98-86ee-5cc615b4bcdb)
+
+![clipbord_1748418976700](https://github.com/user-attachments/assets/0bcc7a29-7b2a-4e43-829a-faed6f13dd2c)
+
+ ![image](https://github.com/user-attachments/assets/f27e6cac-3d0f-497b-9593-f3da84d2dfac)
