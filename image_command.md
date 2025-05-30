@@ -36,6 +36,9 @@ ffmpeg -i need_process_video.mp4 -loop 1 -i insert_frame.png -filter_complex "[0
 
 ## convert avi to mp4
  ffmpeg -i infile.avi youroutput.mp4
+
+## convert mp4 to gif
+$ ffmpeg -i ppl-xpl_highlight.mp4 -vf "fps=30,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" ppl-xpl_highlight.gif 
  
 ## speed mp4 to gif or mp4
 ffmpeg -i Rec0001.mp4 -filter:v "setpts=0.15*PTS" -r 30 lubs12.gif
