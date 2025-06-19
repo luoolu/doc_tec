@@ -103,3 +103,124 @@ password=Loolo.HD6500 \
 
 * **最直接**：用 `smbclient -L` 列出所有 share，然后按需用 `mount -t cifs //server/share /mnt/...` 一一挂载。
 * **最优雅**：用 `autofs` 配合通配符，访问时自动挂载，管理多 share 一劳永逸。
+**************************************************************************************************************
+下面给出在 Ubuntu 上一次性挂载 Synology NAS 上三个存储池对应的「共享文件夹」的完整步骤，假设你的 NAS IP 是 `10.122.5.34`，用户名是 `sadmin`，密码是 `YourPassword`；共享名称分别对应：
+
+* `/volume1/FalconCoreData` → 共享名 `FalconCoreData`
+* `/volume2/FalconCore Datasets` → 共享名 `FalconCore Datasets`
+* `/volume3/FalconCore PPT` → 共享名 `FalconCore PPT`
+
+如果实际共享名有差异，请以 DSM “控制面板 → 共享文件夹” 中列出的名称为准。
+
+---
+
+## 一、在 Ubuntu 上预备工作
+
+1. **安装 CIFS 工具**
+
+   ```bash
+   sudo apt update
+   sudo apt install -y cifs-utils
+   ```
+
+2. **创建三个本地挂载点**
+
+   ```bash
+   sudo mkdir -p /mnt/volume1_FalconCoreData
+   sudo mkdir -p /mnt/volume2_FalconCoreDatasets
+   sudo mkdir -p /mnt/volume3_FalconCorePPT
+   ```
+
+3. **（可选）为了安全存放密码，创建凭证文件**
+
+   ```bash
+   sudo tee /root/.smbcredentials <<-EOF
+   username=sadmin
+   password=YourPassword
+   domain=
+   EOF
+   sudo chmod 600 /root/.smbcredentials
+   ```
+
+---
+
+## 二、临时手动挂载（验证用）
+
+执行下面三条命令，确认能一次性挂载成功：
+
+```bash
+# 挂载 volume1 下的 FalconCoreData
+sudo mount -t cifs //10.122.5.34/FalconCoreData \
+  /mnt/volume1_FalconCoreData \
+  -o credentials=/root/.smbcredentials,uid=$(id -u),gid=$(id -g),_netdev,vers=3.0
+
+# 挂载 volume2 下的 FalconCore Datasets （路径有空格，用双引号包裹）
+sudo mount -t cifs "//10.122.5.34/FalconCore Datasets" \
+  /mnt/volume2_FalconCoreDatasets \
+  -o credentials=/root/.smbcredentials,uid=$(id -u),gid=$(id -g),_netdev,vers=3.0
+
+# 挂载 volume3 下的 FalconCore PPT
+sudo mount -t cifs "//10.122.5.34/FalconCore PPT" \
+  /mnt/volume3_FalconCorePPT \
+  -o credentials=/root/.smbcredentials,uid=$(id -u),gid=$(id -g),_netdev,vers=3.0
+```
+
+**验证**：
+
+```bash
+ls /mnt/volume1_FalconCoreData
+ls /mnt/volume2_FalconCoreDatasets
+ls /mnt/volume3_FalconCorePPT
+```
+
+看到对应目录内容即挂载成功。
+
+---
+
+## 三、写入 `/etc/fstab` 实现开机自动挂载
+
+1. 编辑 fstab：
+
+   ```bash
+   sudo nano /etc/fstab
+   ```
+
+2. 在文件末尾追加（注意对带空格的共享名，用 `\040` 转义）：
+
+   ```
+   //10.122.5.34/FalconCoreData      /mnt/volume1_FalconCoreData      cifs credentials=/root/.smbcredentials,uid=1000,gid=1000,_netdev,vers=3.0  0 0
+   //10.122.5.34/FalconCore\040Datasets  /mnt/volume2_FalconCoreDatasets  cifs credentials=/root/.smbcredentials,uid=1000,gid=1000,_netdev,vers=3.0  0 0
+   //10.122.5.34/FalconCore\040PPT       /mnt/volume3_FalconCorePPT       cifs credentials=/root/.smbcredentials,uid=1000,gid=1000,_netdev,vers=3.0  0 0
+   ```
+
+   * `uid=1000,gid=1000` 按你自己用户的 `id` 调整
+   * `vers=3.0` 可根据 NAS 设置改为 `2.1`、`2.0`
+
+3. 应用挂载：
+
+   ```bash
+   sudo mount -a
+   ```
+
+   再次用 `ls /mnt/...` 验证。
+
+---
+
+## 四、常见问题排查
+
+* **挂载失败报 “Permission denied”**：
+
+  * 检查 `sadmin` 在 DSM 里对该共享是否有读写权限。
+  * 确认凭证文件格式和权限（`chmod 600`）。
+
+* **看不到文件／权限不对**：
+
+  * 调整 `uid=$(id -u)`、`gid=$(id -g)` 或 `file_mode=0664,dir_mode=0775`。
+
+* **挂载很慢或断开**：
+
+  * 在挂载选项里加上 `noatime,_netdev`。
+  * 网络防火墙／交换机是否限速或断开。
+
+执行完以上步骤，你就可以在 `/mnt/volume1_FalconCoreData`、`/mnt/volume2_FalconCoreDatasets`、`/mnt/volume3_FalconCorePPT` 这三个目录下，直接访问 NAS 三个存储池中的共享了。
+
