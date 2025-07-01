@@ -1,3 +1,115 @@
+‘’‘
+remote: error: See https://gh.io/lfs for more information.        
+remote: error: File checkpoints/sam2.1_hiera_large.pt is 856.48 MB; this exceeds GitHub's file size limit of 100.00 MB        
+remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.        
+error: failed to push some refs to 'github.com:luoolu/FalconCoreLabeling.git'
+To github.com:luoolu/FalconCoreLabeling.git
+!	refs/heads/master:refs/heads/master	[remote rejected] (pre-receive hook declined)
+Done
+’‘’
+The error
+
+```
+remote: error: File checkpoints/sam2.1_hiera_large.pt is 856.48 MB; this exceeds GitHub's file size limit of 100.00 MB
+```
+
+means GitHub will refuse to store any file over 100 MB in a normal git push. You have two main options:
+
+---
+
+## 1. Use Git LFS to store your `.pt` checkpoint
+
+Git Large File Storage (LFS) replaces large files with lightweight pointers in your repository, and stores the real content on a separate LFS server.
+
+1. **Install Git LFS**
+   On Ubuntu/Debian:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install git-lfs
+   ```
+
+   Or follow instructions at [https://git-lfs.github.com](https://git-lfs.github.com).
+
+2. **Initialize LFS in your repo**
+
+   ```bash
+   cd /path/to/anylabeling
+   git lfs install
+   ```
+
+3. **Tell Git LFS to track your checkpoint files**
+
+   ```bash
+   git lfs track "checkpoints/*.pt"
+   ```
+
+   This adds a `.gitattributes` file to your repo.
+
+4. **Commit the LFS configuration**
+
+   ```bash
+   git add .gitattributes
+   git commit -m "Configure Git LFS for .pt model files"
+   ```
+
+5. **Re-add your large file so it’s stored via LFS**
+   If you’ve already committed it locally, you need to re-stage it through LFS:
+
+   ```bash
+   # Remove it from the index (but keep the file on disk)
+   git rm --cached checkpoints/sam2.1_hiera_large.pt
+
+   # Re-add it (will now be added as an LFS pointer)
+   git add checkpoints/sam2.1_hiera_large.pt
+   git commit -m "Add sam2.1_hiera_large.pt via LFS"
+   ```
+
+6. **Push to GitHub**
+
+   ```bash
+   git push origin master
+   ```
+
+   Now your checkpoint will live in LFS and your push will succeed.
+
+---
+
+## 2. Host the model checkpoint externally
+
+If you prefer not to use Git LFS, you can:
+
+1. **Remove the file from your repo**
+
+   ```bash
+   git rm --cached checkpoints/sam2.1_hiera_large.pt
+   git commit -m "Remove oversized checkpoint"
+   git push origin master
+   ```
+
+2. **Upload the `.pt` file** to a release or external storage (e.g. GitHub Releases, AWS S3, Google Drive).
+
+3. **In your README**, provide a download link:
+
+   ````markdown
+   ## Download SAM2 checkpoint
+   ```bash
+   wget https://my-storage.example.com/sam2.1_hiera_large.pt -P checkpoints/
+   ````
+
+   ```
+   ```
+
+---
+
+### Which to choose?
+
+* **Git LFS** keeps everything in one repo (recommended if you’ll frequently update large weights).
+* **External hosting** is simpler if this is a one-off large file.
+
+Let me know if you’d like any more help setting up Git LFS or hosting the file externally!
+
+
 '''
 (.venv) (base) luolu@loobuntu:~/PycharmProjects/anylabeling$ git push -u origin master
 Username for 'https://github.com': luoolu
