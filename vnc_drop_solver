@@ -1,8 +1,0 @@
-## the command could not be located because 'usr/bin' is not included in the PATH environment variable
-
-$  export PATH="PATH:PATH:/usr/bin"
-
-## could not find "uname" on your PATH
-
-$  export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-$  export HOME=/home/user_name
