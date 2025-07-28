@@ -1,3 +1,113 @@
+下面给出在 Ubuntu 24 上通过 CIFS（SMB）自动挂载 Synology NAS 的完整步骤与命令。按需将 `<SHARE>` 替换为你在 DSM 中创建的共享文件夹名称。
+
+---
+
+### 1. 安装必要组件
+
+```bash
+sudo apt update
+sudo apt install -y cifs-utils smbclient
+```
+
+* `cifs-utils`：提供挂载 CIFS/SMB 的工具
+* `smbclient`：用于列出 NAS 上的共享，确认 `<SHARE>` 名称
+
+---
+
+### 2. （可选）列出可用共享
+
+```bash
+smbclient -L //10.122.5.33 -U sadmin
+```
+
+* 回车后输入密码 `Loolo.HD6500`
+* 输出里就能看到类似 `Sharename       Type   Comment`，确认要挂载的 `<SHARE>` 名称
+
+---
+
+### 3. 创建凭据文件
+
+出于安全，不建议在 `/etc/fstab` 里明文写用户名／密码，改用凭据文件：
+
+```bash
+sudo tee /etc/samba/credentials_sadmin > /dev/null <<EOF
+username=sadmin
+password=Loolo.HD6500
+# domain=WORKGROUP         # 如有 Windows 域可取消注释并填写
+EOF
+
+sudo chmod 600 /etc/samba/credentials_sadmin
+```
+
+---
+
+### 4. 创建挂载点
+
+```bash
+sudo mkdir -p /mnt/synology
+```
+
+你可以根据喜好把挂载点改为其它路径，比如 `/media/nas`。
+
+---
+
+### 5. 配置 `/etc/fstab` 实现开机自动挂载
+
+用你熟悉的编辑器打开：
+
+```bash
+sudo nano /etc/fstab
+```
+
+在末尾追加一行：
+
+```fstab
+//10.122.5.33/<SHARE>  /mnt/synology  cifs  credentials=/etc/samba/credentials_sadmin,uid=0,gid=0,file_mode=0777,dir_mode=0777,vers=3.0,sec=ntlmssp,_netdev  0  0
+```
+
+* `credentials=…`：指向上步创建的凭据文件
+* `uid=0,gid=0`：以 root 身份挂载，管理员权限
+* `file_mode=0777,dir_mode=0777`：文件/目录允许所有用户读写执行
+* `vers=3.0`：指定 SMB 协议版本，可根据 NAS 设置调整（也可用 `vers=2.1`、`vers=1.0` 或 `vers=auto`）
+* `sec=ntlmssp`：认证方式，Synology 默认支持 NTLMv2
+* `_netdev`：开机挂载时等网络启动后再挂载
+
+保存并退出。
+
+---
+
+### 6. 测试挂载
+
+```bash
+sudo mount -a
+df -h | grep synology
+```
+
+* 如果输出中出现 `/mnt/synology` 且不报错，说明挂载成功
+* 进入查看：
+
+  ```bash
+  ls -l /mnt/synology
+  ```
+
+---
+
+### 7. 重启验证
+
+重启机器，确认开机后挂载依然正常：
+
+```bash
+sudo reboot
+# 重启后
+df -h | grep synology
+```
+
+---
+
+至此，你的 Ubuntu 24 便会在每次开机时自动，将 Synology NAS（10.122.5.33）的 `<SHARE>` 挂载到 `/mnt/synology`，管理员（root）可直接浏览、读取、写入所有文件。
+
+
+********************************************************************************************************
 (base) luolu@falconcore:~$ cd /home/ \
 (base) luolu@falconcore:/home$ sudo mkdir -p /mnt/synology_smb \
 (base) luolu@falconcore:/home$ sudo mount -t cifs //10.122.5.33/FalconCoreData /mnt/synology_smb -o username=sadmin,password=Loolo.HD6500,uid=$(id -u),gid=(id -g) \
