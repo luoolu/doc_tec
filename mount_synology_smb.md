@@ -1,3 +1,87 @@
+下面给出在 Ubuntu 24 上改用 Autofs 自动挂载 Synology NAS 的详细步骤，以便你在访问挂载点时才触发挂载。
+
+假设你要把 `FalconCoreData` 这个 share 挂载到 `/home/data-vg0/mnt/synology_smb`。
+
+---
+
+## 1. 安装 autofs
+
+```bash
+sudo apt update
+sudo apt install -y autofs cifs-utils
+```
+
+## 2. 注释掉 `/etc/fstab` 中相关的 CIFS 条目
+
+为了避免 Autofs 和 fstab 冲突，编辑 `/etc/fstab`，把之前添加的 NAS 挂载行前面加 `#` 注释掉，然后保存。
+
+```bash
+sudo sed -i 's@^//10.122.5.33/@#//10.122.5.33/@' /etc/fstab
+```
+
+## 3. （如未做）准备凭据文件
+
+如果你之前已创建过 `/etc/samba/credentials_sadmin` 并 `chmod 600`，可跳过此步，否则：
+
+```bash
+sudo tee /etc/samba/credentials_sadmin > /dev/null <<EOF
+username=sadmin
+password=Loolo.HD6500
+EOF
+sudo chmod 600 /etc/samba/credentials_sadmin
+```
+
+## 4. 准备 Autofs 的映射文件
+
+我们用 **直接映射**（direct map），把具体的绝对路径挂载到指定 CIFS 资源。
+
+新建 `/etc/auto.synology` 并写入：
+
+```bash
+sudo tee /etc/auto.synology > /dev/null <<'EOF'
+/home/data-vg0/mnt/synology_smb  -fstype=cifs,credentials=/etc/samba/credentials_sadmin,uid=0,gid=0,file_mode=0777,dir_mode=0777,vers=3.1.1,sec=ntlmssp,_netdev  ://10.122.5.33/FalconCoreData
+EOF
+```
+
+* 左侧是要挂载的**完整路径**
+* `-fstype=cifs,…` 为挂载选项，与你用 fstab 时基本一致
+* 最后 `://10.122.5.33/FalconCoreData` 是目标分享
+
+## 5. 告诉 Autofs 加载这个映射
+
+编辑 `/etc/auto.master`，在末尾追加一行：
+
+```bash
+sudo tee -a /etc/auto.master > /dev/null <<EOF
+/-    /etc/auto.synology    --timeout=60
+EOF
+```
+
+* `/-` 表示启用 **直接映射**
+* `--timeout=60` 表示空闲 60 秒后自动卸载（按需调整）
+
+## 6. 重启 Autofs 服务
+
+```bash
+sudo systemctl restart autofs
+```
+
+## 7. 测试挂载
+
+首次访问挂载点才会触发挂载：
+
+```bash
+# 目录本身可先创建一下，autofs 也会懒加载，但提前建好可以防止权限问题
+sudo mkdir -p /home/data-vg0/mnt/synology_smb
+
+# 访问试试
+ls /home/data-vg0/mnt/synology_smb
+```
+
+如果配置正确，你会立即看到 NAS 上 `FalconCoreData` 里的文件列表。
+此后，只要访问该目录就会自动 mount，空闲超过 60 秒则自动 umount。
+
+*******************************************************************************************************************************
 下面给出在 Ubuntu 24 上通过 CIFS（SMB）自动挂载 Synology NAS 的完整步骤与命令。按需将 `<SHARE>` 替换为你在 DSM 中创建的共享文件夹名称。
 
 ---
