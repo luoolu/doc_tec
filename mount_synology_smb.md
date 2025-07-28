@@ -1,3 +1,85 @@
+下面示例用 Autofs 做一个通配挂载，把 NAS 上所有共享（包括三大存储池下的所有 share）按需挂载到同一个父目录下：
+
+---
+
+## 1. 准备工作
+
+* 确保已经安装了 `autofs` 和 `cifs-utils`，且已经有一个凭据文件 `/etc/samba/credentials_sadmin`，内容如下并且权限是 600：
+
+  ```ini
+  username=sadmin
+  password=Loolo.HD6500
+  ```
+
+---
+
+## 2. 创建挂载父目录
+
+```bash
+sudo mkdir -p /home/data-vg0/mnt/synology_all
+```
+
+---
+
+## 3. 配置 Autofs 的映射（间接映射）
+
+新建映射文件 `/etc/auto.synology`，内容如下：
+
+```text
+# 通配符 *：目录名即 share 名称；&
+# 最后的 & 会自动被替换为目录名本身
+*  -fstype=cifs,credentials=/etc/samba/credentials_sadmin,uid=0,gid=0,file_mode=0777,dir_mode=0777,vers=3.1.1,sec=ntlmssp,_netdev  ://10.122.5.33/&
+```
+
+* `*`：匹配任何子目录（即所有 share 名称）
+* `://10.122.5.33/&`：`&` 会变成访问时的子目录名（share 名），相当于 `//10.122.5.33/ShareName`
+
+---
+
+## 4. 编辑 Autofs 主配置
+
+向 `/etc/auto.master` 追加一行，告诉 Autofs 在哪个父目录下应用上面的映射：
+
+```text
+/home/data-vg0/mnt/synology_all  /etc/auto.synology  --timeout=60
+```
+
+* 访问 `/home/data-vg0/mnt/synology_all/SomeShare` 时，就会自动挂载 `//10.122.5.33/SomeShare`
+* `--timeout=60` 表示 60 秒无访问后自动卸载
+
+---
+
+## 5. 重启 autofs
+
+```bash
+sudo systemctl restart autofs
+```
+
+---
+
+## 6. 测试
+
+1. 列出 NAS 上所有 share 名称（确认无误）：
+
+   ```bash
+   smbclient -L //10.122.5.33 -U sadmin
+   ```
+2. 访问挂载点下的某个子目录触发挂载：
+
+   ```bash
+   ls /home/data-vg0/mnt/synology_all/FalconCoreData
+   ```
+3. 查看已挂载：
+
+   ```bash
+   mount | grep synology_all
+   ```
+
+---
+
+这样，你只要在 `/home/data-vg0/mnt/synology_all/任意ShareName` 下访问，就会动态去挂载对应的 NAS 共享，无需手动在 fstab 里写死每一个 share。
+
+****************************************************************************************************************
 下面给出在 Ubuntu 24 上改用 Autofs 自动挂载 Synology NAS 的详细步骤，以便你在访问挂载点时才触发挂载。
 
 假设你要把 `FalconCoreData` 这个 share 挂载到 `/home/data-vg0/mnt/synology_smb`。
