@@ -1,3 +1,73 @@
+Your systemd-timesyncd is not able to synchronize time because it is timing out when trying to contact NTP servers. The `ping` to `ntp.aliyun.com` works, but NTP uses UDP port 123, which is not affected by simple ICMP (ping) tests. The crucial point is your statement:
+
+> my ubuntu24 have proxy "http://10.22.96.29:8080"
+
+### Important:
+- **NTP is NOT an HTTP protocol**—systemd-timesyncd (and all NTP clients) connect directly via UDP port 123.
+- **HTTP/HTTPS proxies do NOT affect or help NTP**—NTP traffic does not go through HTTP proxies.
+
+---
+
+## Your Problem
+
+Your machine is likely on a network where:
+- Direct outbound UDP traffic on port 123 is blocked by firewall or only allowed via proxy (which doesn’t work for NTP).
+- That’s why systemd-timesyncd keeps timing out.
+
+---
+
+## Solutions
+
+### 1. Check Firewall/Network Policy
+- Confirm with your network admin if outbound UDP port 123 is blocked.
+- If possible, allow direct UDP 123 access to public NTP servers.
+
+### 2. Use Local Internal NTP Server
+- If your organization provides an internal NTP server (on the same network), use that in `/etc/systemd/timesyncd.conf`.
+- It’s more likely to be accessible than internet servers.
+
+### 3. Use ntpdate (One-Time Sync via HTTP/HTTPS Proxy)
+- NTP cannot use HTTP proxies. There are **no NTP-over-HTTP/HTTPS proxy tools** for systemd-timesyncd or ntpdate.
+- **Alternative:** If you need accurate time but cannot fix the network, you could occasionally set time manually with a command like:
+  ```bash
+  sudo date -s "$(curl -sI https://google.com | grep ^Date: | cut -d' ' -f3-)"
+  ```
+- This uses your HTTP proxy to fetch an HTTP header date from a public website. It's not as accurate as NTP, but can help in locked-down environments.
+
+---
+
+## What To Do Next
+
+1. **Test NTP Port Directly**
+   ```bash
+   sudo ntpdate -q ntp.aliyun.com
+   ```
+   - If you get `no server suitable for synchronization found`, UDP 123 is blocked.
+
+2. **Try Internal NTP Servers**
+   - Ask your IT/network team for a local NTP server.
+
+3. **Check Proxy Compatibility**
+   - No standard NTP client supports HTTP/HTTPS proxy. Socks5 proxies might be possible but require special setup (not systemd-timesyncd).
+
+---
+
+## Summary Table
+
+| Step                   | Description                                                                  |
+|------------------------|------------------------------------------------------------------------------|
+| Firewall Check         | Ensure outbound UDP 123 is open to NTP servers                               |
+| Local NTP Server       | Use a local NTP server if available                                          |
+| ntpdate Test           | `sudo ntpdate -q ntp.aliyun.com`                                             |
+| Manual Sync (HTTP)     | `sudo date -s "$(curl -sI https://google.com | grep ^Date: | cut -d' ' -f3-)"` |
+
+---
+
+**If you need help configuring with a local NTP server or have a special network setup (like SOCKS proxy), let me know!**
+
+
+*********************************************************************************
+
 Your manual time sync command worked as intended. Here’s what happened:
 
 - You set the system clock using the HTTP “Date” header from https://www.baidu.com.
