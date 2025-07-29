@@ -1,3 +1,62 @@
+Your manual time sync command worked as intended. Here’s what happened:
+
+- You set the system clock using the HTTP “Date” header from https://www.baidu.com.
+- Your new local time is now:  
+  **Tue Jul 29 12:39:02 PM CST 2025**
+
+**What this means:**  
+- This method is a workaround when NTP is blocked and only HTTP/HTTPS traffic is available (e.g., via proxy).
+- It is less accurate than true NTP sync (precision is usually within a second or two).
+- This does NOT keep your system clock synchronized automatically—you must run this command periodically if time drift matters.
+
+---
+
+### If you want to automate this workaround
+
+You can add a cron job that updates time every hour (or as often as you like):
+
+```bash
+sudo crontab -e
+```
+Add a line like:
+```bash
+0 * * * * date -s "$(curl -sI https://www.baidu.com | grep ^Date: | cut -d' ' -f3-)"
+```
+
+---
+
+**Reminder:**  
+If you ever get direct access to NTP (UDP/123), switch back to using `systemd-timesyncd` or another NTP client for better accuracy and automation.
+
+Let me know if you want a script for periodic sync, or if you have more questions!
+You are in the `nano` text editor.  
+To **save** and **exit** in `nano`, use these steps:
+
+1. **Save (Write Out):**  
+   Press `Ctrl + O`  
+   (Hold the `Ctrl` key and press the letter `O`)
+
+   - You will be prompted to confirm the file name. Press `Enter` to confirm.
+
+2. **Exit:**  
+   Press `Ctrl + X`  
+   (Hold the `Ctrl` key and press the letter `X`)
+
+---
+
+**Summary Table**
+
+| Action   | Key         |
+|----------|-------------|
+| Save     | `Ctrl + O`  |
+| Confirm  | `Enter`     |
+| Exit     | `Ctrl + X`  |
+
+Let me know if you need more help with `nano`!
+
+
+
+************************************************************************************************
 下面给出一套 **可落地的排错 + 配置流程**，帮助你在 Ubuntu 24 上把系统时间稳定同步到北京时间（UTC+8）。命令均假设以 root 或具有 sudo 权限的帐号执行。
 （Ubuntu 24.04 仍默认用 **systemd-timesyncd** 作为 NTP 客户端；如果你手动装过 ntp 或 chrony，需先保证只保留一个时间同步服务） ([Ubuntu 文档][1])
 
