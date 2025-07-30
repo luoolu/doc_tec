@@ -30,7 +30,7 @@ Your machine is likely on a network where:
 - NTP cannot use HTTP proxies. There are **no NTP-over-HTTP/HTTPS proxy tools** for systemd-timesyncd or ntpdate.
 - **Alternative:** If you need accurate time but cannot fix the network, you could occasionally set time manually with a command like:
   ```bash
-  sudo date -s "$(curl -sI https://google.com | grep ^Date: | cut -d' ' -f3-)"
+  sudo date -s "$(curl -sI https://www.baidu.com | grep ^Date: | cut -d' ' -f3-)"
   ```
 - This uses your HTTP proxy to fetch an HTTP header date from a public website. It's not as accurate as NTP, but can help in locked-down environments.
 
