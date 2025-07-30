@@ -38,9 +38,9 @@ $ sudo reboot
 
 $ nvidia-smi
 
-$ version=550.90.07
+$ " version=550.90.07
 main_version=$(echo $version | awk -F '.' '{print $1}')
-sudo apt-get -y install nvidia-fabricmanager-${main_version}=${version}-*
+sudo apt-get -y install nvidia-fabricmanager-${main_version}=${version}-* "
 
 $ sudo systemctl enable nvidia-fabricmanager
 
