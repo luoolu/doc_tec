@@ -32,11 +32,14 @@ nvidia-smi
 
 ****************************     NVLink A800     ****************
 # 1. Remove the mismatched package
-sudo apt remove nvidia-fabricmanager
+$ sudo apt remove nvidia-fabricmanager
+
+$ sudo apt install nvidia-driver-550
+$ reboot
 
 # 2. Install the package that matches the driver
-sudo apt update
-sudo apt install nvidia-fabricmanager-550  # 550.163.01-1 or newer in 550.x line
+$ sudo apt update
+$ sudo apt install nvidia-fabricmanager-550  # 550.163.01-1 or newer in 550.x line
 
 # 3. Re-start the service
 sudo systemctl daemon-reload
