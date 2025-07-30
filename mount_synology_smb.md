@@ -1,3 +1,7 @@
+#### view mount
+$ ls /home/data-vg0/mnt/synology_all/Weights
+$ ls /home/data-vg0/mnt/synology_all/FalconCoreData
+
 下面示例用 Autofs 做一个通配挂载，把 NAS 上所有共享（包括三大存储池下的所有 share）按需挂载到同一个父目录下：
 
 ---
