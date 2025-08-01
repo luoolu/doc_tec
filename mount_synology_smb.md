@@ -1,3 +1,185 @@
+明白。下面是 **Ubuntu 24 Server 开机自动枚举并挂载 Synology 上所有可见 SMB 共享**（假设你在 DSM 里已经把 `volume1`/`volume2`/`volume3` 或它们里面的目录设成了 Shared Folder），挂载基础路径是：
+
+```
+/home/data-lv/NAS/{共享名}
+```
+
+### 1. 安装依赖
+
+```bash
+sudo apt update
+sudo apt install -y cifs-utils smbclient
+```
+
+### 2. 创建凭证文件（避免明文写在命令里）
+
+```bash
+sudo tee /etc/samba/credentials_synology > /dev/null <<EOF
+username=sadmin
+password=Loolo.HD6500
+EOF
+sudo chmod 600 /etc/samba/credentials_synology
+```
+
+### 3. 测试列出 NAS 上当前共享（确认能连通）
+
+```bash
+smbclient -L 10.122.5.33 -U sadmin%Loolo.HD6500
+```
+
+记下输出里的共享名（比如 `volume1`、`volume2`、`volume3` 或其他在这些 volume 下的共享文件夹）。
+
+### 4. 写自动枚举并为每个共享生成 systemd .mount unit 的脚本
+
+```bash
+sudo tee /usr/local/bin/synology-auto-mount.sh > /dev/null <<'EOF'
+#!/bin/bash
+
+NAS=10.122.5.33
+CRED=/etc/samba/credentials_synology
+BASE=/home/data-lv/NAS
+
+# 本地用户的 uid/gid（调整为实际运行者，如果不是 1000:1000 用 id 命令替换）
+UID=1000
+GID=1000
+
+# 获取共享列表（排除 IPC$ 等）
+shares=$(smbclient -L "${NAS}" -N -U sadmin 2>/dev/null | awk '/^  [^ ]/ {print $1}' | grep -vE '^(IPC\$)$')
+
+mkdir -p "${BASE}"
+
+for share in $shares; do
+  mountpoint="${BASE}/${share}"
+  # systemd 单元名规则：去掉 leading / 把 / 替换成 - 再加 .mount
+  unit_name=$(echo "${mountpoint}" | sed 's/^\///; s/\//-/g').mount
+  unit_path="/etc/systemd/system/${unit_name}"
+
+  mkdir -p "${mountpoint}"
+
+  cat <<UNIT | sudo tee "${unit_path}" > /dev/null
+[Unit]
+Description=Mount //${NAS}/${share}
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=//${NAS}/${share}
+Where=${mountpoint}
+Type=cifs
+Options=credentials=${CRED},_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=${UID},gid=${GID},vers=3.2
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now "${unit_name}"
+done
+EOF
+
+sudo chmod +x /usr/local/bin/synology-auto-mount.sh
+```
+
+> **注意**：如果你的本地用户不是 UID=1000/GID=1000，先运行 `id` 看实际值，然后替换脚本中 `UID` 和 `GID`。
+
+### 5. 创建 systemd oneshot service，在开机时运行一次该脚本
+
+```bash
+sudo tee /etc/systemd/system/synology-auto-mount.service > /dev/null <<'EOF'
+[Unit]
+Description=Auto create and mount all Synology SMB shares
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/synology-auto-mount.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now synology-auto-mount.service
+```
+
+### 6. 验证挂载
+
+```bash
+# 列出已挂载的 NAS 共享
+mount | grep data-lv/NAS
+
+# 或查看某一个具体挂载点
+ls /home/data-lv/NAS
+
+# 查看 unit 状态（举例某个 share，比如 volume1）
+systemctl status home-data-lv-NAS-volume1.mount
+```
+
+### 7. 重启后再验证（确保开机自动生效）
+
+```bash
+sudo reboot
+# 重启后
+mount | grep data-lv/NAS
+ls /home/data-lv/NAS
+```
+
+### 8. 故障排查
+
+* 查看 service 运行日志：
+
+  ```bash
+  journalctl -u synology-auto-mount.service --since "5 minutes ago"
+  ```
+* 查看某个 mount unit 的日志（假设 share 是 `volume1`）：
+
+  ```bash
+  systemctl status home-data-lv-NAS-volume1.mount
+  journalctl -u home-data-lv-NAS-volume1.mount --no-pager
+  ```
+* 如果协议协商失败，试不同版本，例如把 `vers=3.2` 改成 `vers=3.0` 或 `vers=2.1`，在 unit 里修改后再 `sudo systemctl daemon-reload` 然后 `sudo systemctl restart <unit>`。
+
+---
+
+## 备选：如果你只想挂这三个固定共享，可以用更简洁的 fstab 方式（替代动态脚本）
+
+1. 创建挂载点：
+
+```bash
+sudo mkdir -p /home/data-lv/NAS/volume1
+sudo mkdir -p /home/data-lv/NAS/volume2
+sudo mkdir -p /home/data-lv/NAS/volume3
+```
+
+2. 编辑 `/etc/fstab` 添加：
+
+```fstab
+//10.122.5.33/volume1  /home/data-lv/NAS/volume1  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+//10.122.5.33/volume2  /home/data-lv/NAS/volume2  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+//10.122.5.33/volume3  /home/data-lv/NAS/volume3  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+```
+
+3. 立即挂载：
+
+```bash
+sudo mount -a
+```
+
+---
+
+## 小结
+
+* 用动态脚本+systemd service 可以开机自动枚举并挂载所有当前能看到的共享到 `/home/data-lv/NAS/{share}`。
+* 固定三个共享可用 `/etc/fstab` 简化。
+* 确保用对 UID/GID 和协议版本（`vers=`）以避免权限/协商失败。
+
+需要我把这套流程做成一键部署的 shell 脚本（含 uid/gid 自动探测、失败回退 vers）或者直接给你生成当前 smbclient 输出对应的 unit 名称和 fstab 条目？
+
+
+*****************************************************************************************************
+
 明确：你要 **开机自动挂载 Synology 上三个存储池（假设它们在 DSM 里已经以共享目录的形式暴露，比如 `volume1`/`volume2`/`volume3` 或它们底下的共享文件夹）**，并且一次性把当前所有可见的 share 挂上。下面是可立即执行、稳健的全流程（Ubuntu 24 Server）。
 
 ---
