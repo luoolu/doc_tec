@@ -1,3 +1,141 @@
+好，有效共享名字是：
+`Datasets`、`DOC`、`EXP`、`FalconCoreData`、`FalconCoreServerManagement`、`FalconCoreSoftWare`、`PPT`、`UniversityCollaboration`、`Weights`。
+下面给你一套 **开机自动挂载所有这些 SMB 共享到** `/home/data-lv/NAS/{Sharename}` 的一键可执行、稳健流程（优先用固定 fstab 挂载；失败时有版本 fallback 建议）。
+
+---
+
+## 1. 安装依赖（如果没装）
+
+```bash
+sudo apt update
+sudo apt install -y cifs-utils smbclient
+```
+
+## 2. 准备凭证（权限 600）
+
+```bash
+sudo tee /etc/samba/credentials_synology > /dev/null <<EOF
+username=sadmin
+password=Loolo.HD6500
+EOF
+sudo chmod 600 /etc/samba/credentials_synology
+```
+
+## 3. 创建所有挂载点
+
+```bash
+for share in Datasets DOC EXP FalconCoreData FalconCoreServerManagement FalconCoreSoftWare PPT UniversityCollaboration Weights; do
+  sudo mkdir -p /home/data-lv/NAS/"$share"
+done
+```
+
+确认你的本地用户 UID/GID（替下面 fstab 里的 `uid=1000,gid=1000` 需要根据输出调整）：
+
+```bash
+id
+```
+
+## 4. 先测试一个共享的协议版本（取最常用 `FalconCoreData` 试）
+
+```bash
+sudo mkdir -p /home/data-lv/NAS/test-FalconCoreData
+sudo mount -t cifs //10.122.5.33/FalconCoreData /home/data-lv/NAS/test-FalconCoreData \
+  -o credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=$(id -u),gid=$(id -g),vers=3.0
+```
+
+* 如果成功，记住 `vers=3.0`；
+* 失败的话改成 `vers=3.2` 再测，还是失败就试 `vers=2.1`：
+
+```bash
+# 备选
+sudo mount -t cifs //10.122.5.33/FalconCoreData /home/data-lv/NAS/test-FalconCoreData \
+  -o credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=$(id -u),gid=$(id -g),vers=3.2
+
+sudo mount -t cifs //10.122.5.33/FalconCoreData /home/data-lv/NAS/test-FalconCoreData \
+  -o credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=$(id -u),gid=$(id -g),vers=2.1
+```
+
+查看失败原因（必须 sudo）：
+
+```bash
+sudo dmesg | tail -n 40
+```
+
+确定一个能成功的 `vers=` 值，比如假设是 `3.0`。
+
+## 5. 写入 `/etc/fstab`（用上一步确认的 `vers`，替换 uid/gid 为你的实际）
+
+编辑 `/etc/fstab`，追加如下（假设 `uid=1000,gid=1000`，用你 `id` 输出替换；用你测试成功的 `vers`）：
+
+```fstab
+//10.122.5.33/Datasets                      /home/data-lv/NAS/Datasets                      cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/DOC                           /home/data-lv/NAS/DOC                           cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/EXP                           /home/data-lv/NAS/EXP                           cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/FalconCoreData                /home/data-lv/NAS/FalconCoreData                cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/FalconCoreServerManagement     /home/data-lv/NAS/FalconCoreServerManagement     cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/FalconCoreSoftWare            /home/data-lv/NAS/FalconCoreSoftWare            cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/PPT                            /home/data-lv/NAS/PPT                            cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/UniversityCollaboration        /home/data-lv/NAS/UniversityCollaboration        cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+//10.122.5.33/Weights                        /home/data-lv/NAS/Weights                        cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,uid=1000,gid=1000,dir_mode=0755,file_mode=0644,vers=3.0 0 0
+```
+
+> 如果你后续希望更快失败恢复可以把 `vers=3.0` 改成你手动测到最稳的版本，必要时在多个版本间手动调整。
+
+## 6. 立即应用并验证
+
+```bash
+sudo mount -a
+mount | grep NAS
+ls /home/data-lv/NAS
+```
+
+每个目录应该能直接查看内容并读写。
+
+## 7. 重启确认（开机自动挂载）
+
+```bash
+sudo reboot
+# 重启后
+mount | grep NAS
+ls /home/data-lv/NAS
+```
+
+## 8. 备选 fallback 方案（如果某个 share 因协议不对挂不上）
+
+可以写一个简单脚本检测并尝试多个 `vers`，例如：
+
+```bash
+#!/bin/bash
+SHARE=FalconCoreData
+BASE=/home/data-lv/NAS
+CRED=/etc/samba/credentials_synology
+UID=$(id -u)
+GID=$(id -g)
+for ver in 3.2 3.0 2.1; do
+  sudo umount "${BASE}/${SHARE}" 2>/dev/null || true
+  if sudo mount -t cifs //10.122.5.33/"${SHARE}" "${BASE}/${SHARE}" -o credentials=${CRED},_netdev,iocharset=utf8,uid=${UID},gid=${GID},vers=${ver}; then
+    echo "mounted ${SHARE} with vers=${ver}"
+    break
+  else
+    echo "failed vers=${ver}"
+  fi
+done
+```
+
+## 9. 使网络就绪更可靠（可选）
+
+如果偶发因为网络没起来导致失败，可以加一个 systemd wrapper 让 `mount -a` 在 `network-online.target` 后重试，或在 fstab 里加 `x-systemd.requires=network-online.target`（不过固定挂载通常够稳，有 `_netdev` 已经提示延后）。
+
+---
+
+### 结尾
+
+如果你把 `id` 输出和某个共享挂载失败的 `sudo dmesg | tail -n 40` 贴给我，我可以：
+
+* 把 `/etc/fstab` 里的 `uid`/`gid` 精确替换成你的；
+* 给你一个带自动版本回退的完整 shell 部署脚本。
+
+***************************************************************************************************************************************************************
 明白。下面是 **Ubuntu 24 Server 开机自动枚举并挂载 Synology 上所有可见 SMB 共享**（假设你在 DSM 里已经把 `volume1`/`volume2`/`volume3` 或它们里面的目录设成了 Shared Folder），挂载基础路径是：
 
 ```
