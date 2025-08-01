@@ -1,3 +1,204 @@
+明确：你要 **开机自动挂载 Synology 上三个存储池（假设它们在 DSM 里已经以共享目录的形式暴露，比如 `volume1`/`volume2`/`volume3` 或它们底下的共享文件夹）**，并且一次性把当前所有可见的 share 挂上。下面是可立即执行、稳健的全流程（Ubuntu 24 Server）。
+
+---
+
+## 1. Synology 端先做准备（在 DSM 上确认）
+
+1. 在 DSM 控制台里 **开启 SMB/CIFS 服务**（Control Panel → File Services → SMB）
+2. 确保你想挂载的目录被设置为 **共享文件夹**（Share）。
+
+   * 如果你想挂载整个 volume，比如 `volume1`，就要在 DSM 里将 `volume1` 设为一个共享（或在“Shared Folder”里创建一个指向 volume1 根的共享）。
+3. 确保账号 `sadmin` 有对这些共享的 **读写权限**。
+
+---
+
+## 2. 在 Ubuntu 上安装依赖
+
+```bash
+sudo apt update
+sudo apt install -y cifs-utils smbclient
+```
+
+---
+
+## 3. 测试列出当前所有可挂载的共享（确认网络与认证）
+
+```bash
+# 不交互地列出 share（如果提示要密码，用 -U sadmin%Loolo.HD6500 也可以）
+smbclient -L 10.122.5.33 -U sadmin%Loolo.HD6500
+```
+
+你应该能看到类似 `volume1`, `volume2`, `volume3` 或它们下面的共享文件夹名称（如 `Weights`、`FalconCoreData` 等）。记下你要挂的那些 share 名称，如果是 volume 本身就用它们。
+
+---
+
+## 4. 创建凭证文件（避免在命令/配置里明文）
+
+```bash
+sudo tee /etc/samba/credentials_synology > /dev/null <<EOF
+username=sadmin
+password=Loolo.HD6500
+EOF
+
+sudo chmod 600 /etc/samba/credentials_synology
+```
+
+---
+
+## 5. 写一个“一键自动枚举当前所有 share 并挂载”的脚本
+
+创建脚本 `/usr/local/bin/synology-auto-mount.sh`：
+
+```bash
+sudo tee /usr/local/bin/synology-auto-mount.sh > /dev/null <<'EOF'
+#!/bin/bash
+
+NAS=10.122.5.33
+CRED=/etc/samba/credentials_synology
+BASE=/home/data-vg0/mnt/synology_all
+
+# 获取共享列表（去掉 IPC$ 之类的系统项）
+shares=$(smbclient -L "${NAS}" -N -U sadmin 2>/dev/null | awk '/^  [^ ]/ {print $1}' | grep -vE '^(IPC\$)$')
+
+# 确保基础目录存在
+mkdir -p "${BASE}"
+
+for share in $shares; do
+  mountpoint="${BASE}/${share}"
+  unit_name="mnt-data-vg0-mnt-synology_all-${share}.mount"  # systemd 单元名需要把路径 / 替换成 -
+  # 创建本地挂载点
+  sudo mkdir -p "${mountpoint}"
+
+  # 构造 systemd .mount 单元路径（注意转义规则，路径 /home/data-vg0/mnt/synology_all/${share} 对应 unit 名）
+  # systemd 的命名是把路径去掉前导 /，把 / 替换为 -，再加 .mount
+  # 例如： /home/data-vg0/mnt/synology_all/Weights -> home-data-vg0-mnt-synology_all-Weights.mount
+  unit_name=$(echo "${mountpoint}" | sed 's/^\///; s/\//-/g').mount
+  unit_path="/etc/systemd/system/${unit_name}"
+
+  # 生成 .mount unit
+  cat <<UNIT | sudo tee "${unit_path}" > /dev/null
+[Unit]
+Description=Mount //${NAS}/${share}
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=//${NAS}/${share}
+Where=${mountpoint}
+Type=cifs
+Options=credentials=${CRED},_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now "${unit_name}"
+done
+EOF
+
+sudo chmod +x /usr/local/bin/synology-auto-mount.sh
+```
+
+> 注意：如果你的本地用户不是 UID 1000/GID 1000，用 `id` 查出你的 uid/gid，并替换上面 unit 文件里 `uid=... ,gid=...`。
+
+---
+
+## 6. 创建开机运行该脚本的 systemd oneshot service
+
+写 unit 文件 `/etc/systemd/system/synology-auto-mount.service`：
+
+```bash
+sudo tee /etc/systemd/system/synology-auto-mount.service > /dev/null <<'EOF'
+[Unit]
+Description=Auto create and mount all Synology shares
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/synology-auto-mount.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+启用并立即执行：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now synology-auto-mount.service
+```
+
+---
+
+## 7. 验证挂载是否成功
+
+```bash
+# 看所有挂载点
+mount | grep synology_all
+
+# 或单个状态
+systemctl status $(echo /home/data-vg0/mnt/synology_all/Weights | sed 's/^\///; s/\//-/g').mount
+
+# 列出目录内容（触发访问后应该已经挂上）
+ls /home/data-vg0/mnt/synology_all
+```
+
+---
+
+## 8. （可选）稳固：如果你只固定想挂载 volume1/2/3 这三个 share，可以跳过动态脚本，直接用 fstab 挂载
+
+示例在 `/etc/fstab` 加三行（假设共享名就是 volume1、volume2、volume3）：
+
+```fstab
+//10.122.5.33/volume1  /home/data-vg0/mnt/synology_all/volume1  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+//10.122.5.33/volume2  /home/data-vg0/mnt/synology_all/volume2  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+//10.122.5.33/volume3  /home/data-vg0/mnt/synology_all/volume3  cifs  credentials=/etc/samba/credentials_synology,_netdev,iocharset=utf8,file_mode=0777,dir_mode=0777,uid=1000,gid=1000,vers=3.2  0 0
+```
+
+然后：
+
+```bash
+sudo mkdir -p /home/data-vg0/mnt/synology_all/volume1
+sudo mkdir -p /home/data-vg0/mnt/synology_all/volume2
+sudo mkdir -p /home/data-vg0/mnt/synology_all/mnt/synology_all/volume3  # 注意路径打好
+sudo mount -a
+```
+
+---
+
+## 9. 故障排查命令
+
+```bash
+# 查看 .service / .mount 单元日志
+journalctl -u synology-auto-mount.service --since "5 minutes ago"
+journalctl -u home-data-vg0-mnt-synology_all-Weights.mount
+
+# 查看是否网络已就绪（影响挂载顺序）
+systemctl status network-online.target
+
+# 如果挂载失败，可尝试更改 SMB 协议版本，如 vers=3.0 或 vers=2.1
+```
+
+---
+
+## 10. 之后重启测试
+
+```bash
+sudo reboot
+# 重启后检查
+mount | grep synology_all
+ls /home/data-vg0/mnt/synology_all
+```
+
+---
+
+如果你把实际的共享列表（`smbclient -L 10.122.5.33 -U sadmin%Loolo.HD6500` 输出）贴我，我可以直接给你生成对应的 fstab 片段和当前的 .mount unit 名称替换你的 UID/GID 并一键脚本化。
+
+********************************************************************************************************************************
 #### view mount
 $ ls /home/data-vg0/mnt/synology_all/Weights
 $ ls /home/data-vg0/mnt/synology_all/FalconCoreData
