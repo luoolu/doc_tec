@@ -44,3 +44,18 @@ proxy_servers:
     https_proxy=http://10.22.96.29:8080/
  
 ssl_verify: False
+
+## chrome proxy
+google-chrome --proxy-server="http://127.0.0.1:17897" \
+              --proxy-bypass-list="127.0.0.1,localhost,10.0.0.0/8;172.16.0.0/12;192.168.0.0/16"
+# SOCKS：
+# google-chrome --proxy-server="socks5://127.0.0.1:17890" \
+#               --host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE localhost"
+
+## 一键开关（可选，放到 ~/.proxyrc 并在 ~/.bashrc 里 source ~/.proxyrc）
+proxy_on_http(){ export http_proxy=http://127.0.0.1:17897 https_proxy=$http_proxy \
+ HTTP_PROXY=$http_proxy HTTPS_PROXY=$http_proxy \
+ no_proxy="127.0.0.1,localhost,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16" NO_PROXY="$no_proxy"; echo "[proxy] HTTP ON"; }
+proxy_on_socks(){ export all_proxy=socks5h://127.0.0.1:17890 ALL_PROXY=$all_proxy; proxy_on_http; echo "[proxy] SOCKS ON"; }
+proxy_off(){ unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY; export NO_PROXY="127.0.0.1,localhost"; echo "[proxy] OFF"; }
+
