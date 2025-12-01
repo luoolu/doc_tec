@@ -1,3 +1,7 @@
+### gitlab
+$ luolu@petrochina.com.cn \
+$ 6vNAxVdgR6uM4xD \
+
 问题根源  
 你已经在本机生成了 Ed25519 密钥，但 GitLab 服务器（10.122.4.56）并不知道这把公钥，因此它只能用密码方式验证。由于 GitLab 默认关闭了「账号密码登录」（或你的账号被设为「仅允许 SSH Key」），所以即使输入正确的密码也会报 Permission denied。
 
