@@ -290,3 +290,210 @@ chmod +x ~/bin/ag-run
 ---
 
 如果你希望我再给你一个“公司内分享版”（把敏感信息如端口/路径抽成变量、加上注释/FAQ、并补上截图位置说明），我也可以直接帮你再出一份更“讲人话”的版本。
+
+****************************************************************** usage  ******************************************************
+
+不需要每次都手动 `pkill + 手敲启动命令` 才能用。现在你这套“透明代理（redsocks+iptables）”已经把 **Node/undici 直连**的问题解决了，剩下主要是把 **启动/关闭**做得更顺手、尽量“点一下/一条命令”。
+
+下面给你 3 个更友好的用法（从最省事到最“像产品”）。
+
+---
+
+## 方案 A：一条命令启动，退出后自动恢复网络（推荐）
+
+思路：写一个 `ag` 脚本：
+
+1. 开启透明代理（需要 sudo）
+2. 启动 Antigravity
+3. 你关闭 Antigravity 后，脚本自动执行“关闭透明代理”（trap）
+
+### 1) 增强版 `ag-proxy-on`（避免重复加规则）
+
+把你之前的 `ag-proxy-on` 改成“先检查是否已存在”：
+
+```bash
+cat > ~/bin/ag-proxy-on <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+UPSTREAM_HOST="127.0.0.1"
+UPSTREAM_PORT="17897"
+REDSOCKS_PORT="12345"
+UID_NOW="$(id -u)"
+
+sudo apt-get update -y >/dev/null
+sudo apt-get install -y redsocks >/dev/null
+
+sudo tee /etc/redsocks.conf >/dev/null <<CONF
+base {
+  log_debug = off;
+  log_info = on;
+  daemon = on;
+  redirector = iptables;
+}
+redsocks {
+  local_ip = 127.0.0.1;
+  local_port = ${REDSOCKS_PORT};
+  ip = ${UPSTREAM_HOST};
+  port = ${UPSTREAM_PORT};
+  type = socks5;
+}
+CONF
+
+sudo systemctl restart redsocks >/dev/null
+
+sudo iptables -t nat -N AG_REDIR 2>/dev/null || true
+sudo iptables -t nat -F AG_REDIR
+
+sudo iptables -t nat -A AG_REDIR -d 127.0.0.0/8 -j RETURN
+sudo iptables -t nat -A AG_REDIR -d 10.0.0.0/8 -j RETURN
+sudo iptables -t nat -A AG_REDIR -d 172.16.0.0/12 -j RETURN
+sudo iptables -t nat -A AG_REDIR -d 192.168.0.0/16 -j RETURN
+
+sudo iptables -t nat -A AG_REDIR -p tcp --dport 80  -j REDIRECT --to-ports ${REDSOCKS_PORT}
+sudo iptables -t nat -A AG_REDIR -p tcp --dport 443 -j REDIRECT --to-ports ${REDSOCKS_PORT}
+
+# OUTPUT 规则如果已存在就不重复加
+if ! sudo iptables -t nat -C OUTPUT -m owner --uid-owner "${UID_NOW}" -p tcp -j AG_REDIR 2>/dev/null; then
+  sudo iptables -t nat -A OUTPUT -m owner --uid-owner "${UID_NOW}" -p tcp -j AG_REDIR
+fi
+
+echo "[OK] Transparent proxy ON (uid=${UID_NOW}) redsocks:${REDSOCKS_PORT} -> socks5 ${UPSTREAM_HOST}:${UPSTREAM_PORT}"
+EOF
+
+chmod +x ~/bin/ag-proxy-on
+```
+
+### 2) `ag-proxy-off`（不变也行，我给一个更稳的）
+
+```bash
+cat > ~/bin/ag-proxy-off <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+UID_NOW="$(id -u)"
+
+sudo iptables -t nat -D OUTPUT -m owner --uid-owner "${UID_NOW}" -p tcp -j AG_REDIR 2>/dev/null || true
+sudo iptables -t nat -F AG_REDIR 2>/dev/null || true
+sudo iptables -t nat -X AG_REDIR 2>/dev/null || true
+
+echo "[OK] Transparent proxy OFF (uid=${UID_NOW})"
+EOF
+
+chmod +x ~/bin/ag-proxy-off
+```
+
+### 3) 一条命令启动并自动回滚：`~/bin/ag`
+
+```bash
+cat > ~/bin/ag <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROFILE_DIR="${HOME}/.cache/antigravity-clean-profile"
+
+cleanup() {
+  # 退出 Antigravity 后自动关闭透明代理
+  ~/bin/ag-proxy-off >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+# 开透明代理（需要 sudo；第一次会让你输密码）
+~/bin/ag-proxy-on
+
+# 不要每次都 KILL，先温柔关（没有也不会报错）
+pkill -u "$USER" -TERM -f 'antigravity|Antigravity|ptyHost|crashpad' 2>/dev/null || true
+sleep 0.5
+
+exec /usr/share/antigravity/antigravity \
+  --user-data-dir="$PROFILE_DIR" \
+  --disable-gpu
+EOF
+
+chmod +x ~/bin/ag
+```
+
+以后你就只需要：
+
+```bash
+~/bin/ag
+```
+
+关闭方式：**正常点窗口关闭/退出**即可；你退出后网络会自动恢复（iptables 规则被清掉）。
+
+---
+
+## 方案 B：更“无感”的方式：开机/登录后常驻透明代理（不自动关闭）
+
+如果你希望 **之后随时直接点 Antigravity 图标就能用**，可以只在登录后跑一次：
+
+```bash
+~/bin/ag-proxy-on
+```
+
+以后直接启动：
+
+```bash
+/usr/share/antigravity/antigravity --disable-gpu
+```
+
+不用时手动关：
+
+```bash
+~/bin/ag-proxy-off
+```
+
+> 这更像“环境准备一次，应用随便开”。
+
+---
+
+## 方案 C：关闭/重启更友好：提供一个 `ag-stop`
+
+有时候 Antigravity 会残留 ptyHost / crashpad，导致“第二个实例”弹窗。给你一个一键关闭脚本：
+
+```bash
+cat > ~/bin/ag-stop <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 先 TERM 再 KILL
+pkill -u "$USER" -TERM -f 'antigravity|Antigravity|ptyHost|crashpad' 2>/dev/null || true
+sleep 1
+pkill -u "$USER" -KILL -f 'antigravity|Antigravity|ptyHost|crashpad' 2>/dev/null || true
+
+# 清理单实例锁（可选但很有效）
+for d in \
+  "$HOME/.config/Antigravity" "$HOME/.config/antigravity" \
+  "$HOME/.local/share/Antigravity" "$HOME/.local/share/antigravity" \
+  "$HOME/.cache/Antigravity" "$HOME/.cache/antigravity" \
+  "$HOME/.cache/antigravity-clean-profile"
+do
+  [[ -d "$d" ]] || continue
+  find "$d" -maxdepth 2 \( -name 'Singleton*' -o -name '*.lock' \) -delete 2>/dev/null || true
+  find "$d" -maxdepth 2 -type s -name 'Singleton*' -delete 2>/dev/null || true
+done
+
+echo "[OK] Antigravity stopped and locks cleaned."
+EOF
+
+chmod +x ~/bin/ag-stop
+```
+
+以后卡住/弹“第二个实例”，就：
+
+```bash
+~/bin/ag-stop
+~/bin/ag
+```
+
+---
+
+## 你日志里的几个点顺便解释一下
+
+* `No OAuth token available`：启动时先报一次很常见，只要后面能正常进入就不用管。
+* `ptyHost terminated unexpectedly with code 0`：多见于它的终端子进程组件退出，一般不影响主功能。
+* “第二个实例”偶发：多数是 lock 残留或上次退出不干净，用 `ag-stop` + 清 lock 能明显减少。
+
+---
+
+如果你希望再“丝滑”一点（比如 **不用每次输 sudo 密码**），我也可以给你一份最小化的 `sudoers` 配置（只放行 `redsocks` 重启和特定 iptables 命令，风险可控），这样同事直接 `~/bin/ag` 就一键全通。
+
