@@ -159,3 +159,43 @@ $  export PATH="PATH:PATH:/usr/bin"
 
 $  export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 $  export HOME=/home/user_name
+
+## new 
+原因已确认：VNC 已正常运行，但只监听本机地址：
+
+  127.0.0.1:5901
+
+  这是因为 .vnc/config:6 中设置了 localhost。
+
+  推荐通过 SSH 隧道连接。在运行 Remmina 的电脑上执行：
+
+  ssh -N -L 15901:127.0.0.1:5901 luolu@10.122.5.97
+
+  保持终端运行，然后在 Remmina 中填写：
+
+  - 协议：VNC
+  - 服务器：127.0.0.1:15901
+  - 密码：你的 VNC 密码
+
+  服务器的 SSH 端口 22 已确认正常监听，无需重启 VNC。
+
+  如果必须直接连接，则把配置中的：
+
+  localhost
+
+  改成：
+
+  localhost=no
+
+  然后执行：
+
+  vncserver --kill :1
+  vncserver :1
+
+  Remmina 再连接：
+
+  10.122.5.97:5901
+
+  直接开放 VNC 安全性较低，优先使用 SSH 隧道。另一个小问题是终止命令应写成 vncserver --kill :1；;1
+  会被 Bash 当作另一条名为 1 的命令。
+
